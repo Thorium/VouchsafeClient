@@ -1,0 +1,970 @@
+{
+  "openapi": "3.0.0",
+  "components": {
+    "examples": {},
+    "headers": {},
+    "parameters": {},
+    "requestBodies": {},
+    "responses": {},
+    "schemas": {
+      "PublicAddressV2": {
+        "properties": {
+          "residence_number": {
+            "type": "string",
+            "description": "The street number, with any flat or unit number in front, e.g. `\"10\"` or `\"Flat 2, 10\"`."
+          },
+          "building_name": {
+            "type": "string",
+            "description": "The name of the building, e.g. `\"Rose Cottage\"` or `\"Rose Court\"`."
+          },
+          "street": {
+            "type": "string"
+          },
+          "city": {
+            "type": "string"
+          },
+          "postcode": {
+            "type": "string"
+          },
+          "country": {
+            "type": "string"
+          },
+          "region": {
+            "type": "string",
+            "description": "State, province, or county."
+          },
+          "country_code": {
+            "type": "string",
+            "description": "ISO 3166-1 alpha-2 country code."
+          }
+        },
+        "type": "object",
+        "additionalProperties": false
+      },
+      "Recommendation": {
+        "type": "string",
+        "enum": [
+          "REJECT",
+          "REVIEW",
+          "CLEAR"
+        ]
+      },
+      "CheckState": {
+        "type": "string",
+        "enum": [
+          "PASS",
+          "FAIL",
+          "INCONCLUSIVE",
+          "PARTIAL",
+          "NOT_PERFORMED"
+        ]
+      },
+      "Reason": {
+        "enum": [
+          "INVALID_POSTCODE",
+          "INVALID_ADDRESS",
+          "MED_MATCH_PERSON_AT_ADDRESS",
+          "LOW_MATCH_PERSON_AT_ADDRESS",
+          "PARTIAL_ADDRESS_MATCH",
+          "WEAK_IDENTITY_WITH_FULL_ADDRESS",
+          "DOB_NOT_MATCHED",
+          "DOB_FUZZY_MATCH",
+          "NO_DOB_DATA",
+          "NO_IDENTITY_MATCH",
+          "NO_RESIDENCY_MATCH",
+          "INVALID_PHONE_FORMAT"
+        ],
+        "type": "string"
+      },
+      "CheckResult": {
+        "properties": {
+          "state": {
+            "$ref": "#/components/schemas/CheckState"
+          },
+          "reason": {
+            "$ref": "#/components/schemas/Reason"
+          }
+        },
+        "required": [
+          "state"
+        ],
+        "type": "object",
+        "additionalProperties": false
+      },
+      "Record_CreditBureauVerificationChecks.CheckResult_": {
+        "properties": {
+          "IDENTITY_MATCH": {
+            "$ref": "#/components/schemas/CheckResult"
+          },
+          "RESIDENCY_MATCH": {
+            "$ref": "#/components/schemas/CheckResult"
+          }
+        },
+        "required": [
+          "IDENTITY_MATCH",
+          "RESIDENCY_MATCH"
+        ],
+        "type": "object",
+        "description": "Construct a type with a set of properties K of type T"
+      },
+      "CreditBureauVerificationReport": {
+        "properties": {
+          "state": {
+            "$ref": "#/components/schemas/CheckState"
+          },
+          "checks": {
+            "$ref": "#/components/schemas/Record_CreditBureauVerificationChecks.CheckResult_"
+          }
+        },
+        "required": [
+          "state",
+          "checks"
+        ],
+        "type": "object",
+        "additionalProperties": false
+      },
+      "OnlineFootprintChecks": {
+        "anyOf": [
+          {
+            "properties": {
+              "PHONE_SCORE": {
+                "$ref": "#/components/schemas/CheckResult"
+              },
+              "EMAIL_SCORE": {
+                "$ref": "#/components/schemas/CheckResult"
+              }
+            },
+            "required": [
+              "EMAIL_SCORE"
+            ],
+            "type": "object"
+          },
+          {
+            "properties": {
+              "EMAIL_SCORE": {
+                "$ref": "#/components/schemas/CheckResult"
+              },
+              "PHONE_SCORE": {
+                "$ref": "#/components/schemas/CheckResult"
+              }
+            },
+            "required": [
+              "PHONE_SCORE"
+            ],
+            "type": "object"
+          }
+        ]
+      },
+      "OnlineFootprintVerificationReport": {
+        "properties": {
+          "state": {
+            "$ref": "#/components/schemas/CheckState"
+          },
+          "checks": {
+            "$ref": "#/components/schemas/OnlineFootprintChecks"
+          }
+        },
+        "required": [
+          "state",
+          "checks"
+        ],
+        "type": "object",
+        "additionalProperties": false
+      },
+      "Record_AmlVerificationChecks.CheckResult_": {
+        "properties": {
+          "AML_SANCTIONS_CHECK": {
+            "$ref": "#/components/schemas/CheckResult"
+          }
+        },
+        "required": [
+          "AML_SANCTIONS_CHECK"
+        ],
+        "type": "object",
+        "description": "Construct a type with a set of properties K of type T"
+      },
+      "AmlVerificationReport": {
+        "properties": {
+          "state": {
+            "$ref": "#/components/schemas/CheckState"
+          },
+          "checks": {
+            "$ref": "#/components/schemas/Record_AmlVerificationChecks.CheckResult_"
+          }
+        },
+        "required": [
+          "state",
+          "checks"
+        ],
+        "type": "object",
+        "additionalProperties": false
+      },
+      "AdverseMediaOutcome": {
+        "type": "string",
+        "enum": [
+          "PASS",
+          "REVIEW",
+          "FAIL"
+        ]
+      },
+      "AdverseMediaRiskArticle": {
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "Headline of the news article"
+          },
+          "link": {
+            "type": "string",
+            "description": "URL to the original article"
+          },
+          "source": {
+            "type": "string",
+            "description": "Name of the publication"
+          },
+          "published_at": {
+            "type": "string",
+            "nullable": true,
+            "description": "Publication date as an ISO 8601 timestamp, or null if the date could not be determined"
+          },
+          "snippet": {
+            "type": "string",
+            "description": "Short excerpt from the article"
+          },
+          "level": {
+            "$ref": "#/components/schemas/AdverseMediaOutcome",
+            "description": "`FAIL` when the article accuses the person of wrongdoing that signals fraud, `REVIEW` when a person needs to check it, otherwise `PASS`"
+          },
+          "reason": {
+            "type": "string",
+            "description": "Why the article was given its level"
+          }
+        },
+        "required": [
+          "title",
+          "link",
+          "source",
+          "published_at",
+          "snippet",
+          "level",
+          "reason"
+        ],
+        "type": "object",
+        "additionalProperties": false
+      },
+      "AdverseMediaRiskReport": {
+        "properties": {
+          "state": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AdverseMediaOutcome"
+              },
+              {
+                "type": "string",
+                "enum": [
+                  "NOT_PERFORMED"
+                ]
+              }
+            ],
+            "description": "The screening outcome, or `NOT_PERFORMED` when the search couldn't run"
+          },
+          "articles": {
+            "items": {
+              "$ref": "#/components/schemas/AdverseMediaRiskArticle"
+            },
+            "type": "array",
+            "description": "Every article the search found"
+          }
+        },
+        "required": [
+          "state",
+          "articles"
+        ],
+        "type": "object",
+        "additionalProperties": false
+      },
+      "EnrichmentReports": {
+        "properties": {
+          "credit_bureau": {
+            "$ref": "#/components/schemas/CreditBureauVerificationReport",
+            "description": "Credit bureau check report. Present when `\"CREDIT_BUREAU\"` was requested."
+          },
+          "online_footprint": {
+            "$ref": "#/components/schemas/OnlineFootprintVerificationReport",
+            "description": "Online footprint check report. Present when `\"ONLINE_FOOTPRINT\"` was requested."
+          },
+          "aml": {
+            "$ref": "#/components/schemas/AmlVerificationReport",
+            "description": "AML / sanctions check report. Present when `\"AML\"` was requested."
+          },
+          "adverse_media": {
+            "$ref": "#/components/schemas/AdverseMediaRiskReport",
+            "description": "Adverse media report. Present when `\"ADVERSE_MEDIA\"` was requested.\n\nLists every article the search found. An article is `FAIL` when it accuses the person of wrongdoing that signals fraud, such as fraud, financial crime or a regulatory ban, `REVIEW` when a person needs to check it, and otherwise `PASS`. An article needs checking when it might be about someone else with the same name, the person was acquitted, or the wrongdoing is not a sign of fraud, such as violence.\n\n`state` is `FAIL` when any article is `FAIL`, `REVIEW` when any needs review, and `NOT_PERFORMED` when the search couldn't run. Adding `address.city` narrows the search."
+          }
+        },
+        "type": "object",
+        "additionalProperties": false
+      },
+      "RiskMetadata": {
+        "properties": {
+          "thresholds": {
+            "properties": {
+              "aml": {
+                "type": "number",
+                "format": "double",
+                "description": "AML pass/fail threshold (0–100). Default: 96."
+              },
+              "online_footprint": {
+                "type": "number",
+                "format": "double",
+                "description": "Online footprint pass/fail threshold (0–100). Default: 50."
+              }
+            },
+            "required": [
+              "aml",
+              "online_footprint"
+            ],
+            "type": "object",
+            "description": "Effective score thresholds used for the optional enrichment checks."
+          }
+        },
+        "type": "object",
+        "additionalProperties": false
+      },
+      "GetRiskResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique identifier for this risk assessment."
+          },
+          "team_id": {
+            "type": "string",
+            "description": "The team that performed this assessment."
+          },
+          "enrichments": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "CREDIT_BUREAU",
+                "ONLINE_FOOTPRINT",
+                "AML",
+                "ADVERSE_MEDIA"
+              ]
+            },
+            "type": "array",
+            "description": "The optional enrichment checks that were requested alongside Radar."
+          },
+          "first_name": {
+            "type": "string"
+          },
+          "last_name": {
+            "type": "string"
+          },
+          "address": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PublicAddressV2"
+              }
+            ],
+            "nullable": true,
+            "description": "The address that was submitted, or null if none was provided."
+          },
+          "date_of_birth": {
+            "type": "string",
+            "description": "Date of birth in YYYY-MM-DD format."
+          },
+          "email": {
+            "type": "string",
+            "description": "Email address used as the primary Radar matching key."
+          },
+          "phone": {
+            "type": "string"
+          },
+          "risk_score": {
+            "type": "number",
+            "format": "double",
+            "description": "Risk score from 0 (highest risk) to 100 (lowest risk).\nDerived from the weighted sum of trust and fraud signals detected.",
+            "example": 72
+          },
+          "recommendation": {
+            "$ref": "#/components/schemas/Recommendation",
+            "description": "Recommended action based on `risk_score`.\n\n- `\"CLEAR\"` — score 60–100: low risk, proceed with confidence\n- `\"REVIEW\"` — score 34–59: elevated risk, consider further checks\n- `\"REJECT\"` — score 0–33: high risk, the identity is likely fraudulent"
+          },
+          "trust_signals": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "description": "Signals that contributed positively to the risk score."
+          },
+          "fraud_signals": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "description": "Signals that contributed negatively to the risk score."
+          },
+          "enrichment_reports": {
+            "$ref": "#/components/schemas/EnrichmentReports",
+            "description": "Enrichment check reports, keyed by enrichment name. Present when enrichments were requested."
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/RiskMetadata",
+            "description": "Supplementary data: effective thresholds used for the optional enrichment checks."
+          },
+          "billable": {
+            "type": "boolean",
+            "description": "Whether the check consumed billable credits."
+          },
+          "alerts_enabled_at": {
+            "type": "string",
+            "nullable": true,
+            "description": "When ongoing AML monitoring was enabled (ISO 8601), or `null` if not active. See [Alerts API](https://docs.vouchsafe.id/api/v1/toggle-alerts)."
+          },
+          "created_at": {
+            "type": "string",
+            "description": "ISO 8601 timestamp of when this risk assessment was created."
+          }
+        },
+        "required": [
+          "id",
+          "team_id",
+          "enrichments",
+          "first_name",
+          "last_name",
+          "address",
+          "date_of_birth",
+          "email",
+          "risk_score",
+          "recommendation",
+          "trust_signals",
+          "fraud_signals",
+          "billable",
+          "alerts_enabled_at",
+          "created_at"
+        ],
+        "type": "object",
+        "additionalProperties": false
+      },
+      "FailedReason": {
+        "enum": [
+          "REFEREE_UNDER_18",
+          "UNDER_18",
+          "EXPIRY_DATE_PASSED",
+          "DOCUMENT_PAST_EXPIRY_WINDOW",
+          "PHOTO_ID_MISSING_EXPIRY",
+          "ISSUER_NOT_ALLOWED",
+          "LOW_ID_FACE_MATCH",
+          "MEDIUM_ID_FACE_MATCH",
+          "LOW_LIVENESS_CONFIDENCE",
+          "LOW_DOC_TYPE_MATCH",
+          "MEDIUM_DOC_TYPE_MATCH",
+          "PARTIAL_EXTRACTION",
+          "NAME_MISMATCH",
+          "NAME_HARD_MISMATCH",
+          "ADDRESS_MISMATCH",
+          "NAME_CHECK_INCONCLUSIVE",
+          "ADDRESS_CHECK_INCONCLUSIVE",
+          "REFEREE_NAME_MATCHES_USER",
+          "REFEREE_SELFIE_MATCHES_USER",
+          "DATE_OF_BIRTH_MISMATCH",
+          "PHOTO_ID_FEATURE_MISSING",
+          "PHOTO_ID_SCAN_DETAILS_MISSING",
+          "PHOTO_ID_TYPE_NOT_ACCEPTED",
+          "COUNTRY_NOT_SUPPORTED",
+          "WATERMARK_TEXT_DETECTED",
+          "SAMPLE_DOCUMENT_NUMBER_DETECTED",
+          "SAMPLE_NAME_DETECTED",
+          "SAMPLE_MRZ_CODE_DETECTED",
+          "SAMPLE_DOCUMENT_DETECTED",
+          "INCOMPLETE_PASSPORT_IMAGE",
+          "MRZ_NOT_TD3",
+          "MRZ_NOT_TD1",
+          "INVALID_MRZ_CODE",
+          "INCOMPLETE_MRZ_DATA",
+          "ENCODED_ID_MISMATCH_WITH_VIZ",
+          "VIZ_MRZ_MISMATCH",
+          "INVALID_ID_FORMAT",
+          "CONTAINS_UNWANTED_PHRASES",
+          "INVALID_ISSUING_AUTHORITY",
+          "INVALID_NEC_FORMAT",
+          "INVALID_ITSO_FORMAT",
+          "DOCUMENT_FEATURE_MISSING",
+          "VIZ_DOES_NOT_MATCH_API",
+          "INVALID_CARD_NUMBER",
+          "ISSUER_MATCH_NOT_FOUND",
+          "DOCUMENT_DATE_EXCEEDS_VALIDITY_PERIOD",
+          "MULTIPLE_RECIPIENTS",
+          "EXTRACTION_FAILED",
+          "ENCRYPTED_FILE",
+          "CORRUPT_FILE",
+          "ORIGINAL_DOC_NOT_DETECTED",
+          "ORIGINAL_DOC_INCONCLUSIVE",
+          "DUPLICATE_DOC_DETECTED",
+          "DUPLICATE_DOC_INCONCLUSIVE",
+          "INVALID_DOB_FORMAT",
+          "INVALID_DOCUMENT_DATE_FORMAT",
+          "POSSIBLY_TAMPERED",
+          "DOCUMENT_TAMPERED_INCONCLUSIVE",
+          "DOCUMENT_CORNERS_NOT_DETECTED",
+          "DOCUMENT_LOOKS_LIKE_SCREENSHOT",
+          "DOCUMENT_TEXT_TAMPERED",
+          "DOCUMENT_LOOKS_LIKE_PRINT_COPY",
+          "DOCUMENT_COLOR_PROFILE_CHANGED",
+          "DOCUMENT_IS_GRAYSCALE",
+          "OWNER_NAME_NOT_FOUND",
+          "NO_RECENT_TRANSACTIONS",
+          "ZERO_BALANCE_ALERT",
+          "NO_VALID_ACCOUNT",
+          "SHARE_CODE_ERROR",
+          "INCORRECT_DETAILS",
+          "SHARE_CODE_LOCKED_OUT",
+          "EVISA_SERVICE_UNAVAILABLE",
+          "NETWORK_ERROR",
+          "EVISA_ROUTING_CHANGED",
+          "NO_REFERENCE_NUMBER_ON_PAGE",
+          "NO_IMAGE_URL_ON_PAGE",
+          "NO_NAME_ON_PAGE",
+          "NO_EXPIRY_DATE_ON_PAGE",
+          "NO_NATIONALITY_ON_PAGE",
+          "NO_STATUS_ON_PAGE",
+          "NO_VALID_FROM_ON_PAGE",
+          "INVALID_IMAGE_DATA",
+          "SELECTOR_NOT_FOUND",
+          "EVISA_UPLOAD_FAILED",
+          "EVISA_CONDITIONS_LLM_UNAVAILABLE",
+          "EVISA_CONDITIONS_INVALID_RESPONSE",
+          "PDF_DOWNLOAD_TIMEOUT",
+          "PDF_DOWNLOAD_ERROR",
+          "PDF_DOWNLOAD_DIRECTORY_ERROR",
+          "PUPPETEER_BROWSER_LAUNCH_FAILED",
+          "DOWNLOAD_DIRECTORY_SETUP_FAILED",
+          "INTERNAL_ERROR",
+          "IMAGE_PROCESSING_ERROR",
+          "EVISA_NOT_YET_VALID",
+          "UNRECOGNISED_INDEFINITE_STATUS",
+          "BLOCKED_FACE_DETECTED",
+          "NO_FACE_ON_DOCUMENT",
+          "SERVICE_UNAVAILABLE",
+          "SYSTEM_ISSUE",
+          "REQUIRED_DATA_UNAVAILABLE",
+          "DIGITAL_ID_SESSION_EXPIRED",
+          "DIGITAL_ID_VERIFICATION_FAILED",
+          "DIGITAL_ID_SESSION_NOT_FOUND",
+          "DIGITAL_ID_PROVIDER_ERROR",
+          "DIGITAL_ID_MISSING_SESSION_DATA",
+          "DIGITAL_ID_USER_ABANDONED",
+          "DIGITAL_ID_USER_CANCELLED",
+          "DIGITAL_ID_USER_TIMED_OUT",
+          "DIGITAL_ID_REQUIRED_DETAILS_MISSING",
+          "CRA_NO_RESIDENCY_MATCH"
+        ],
+        "type": "string"
+      },
+      "ApiErrorResponse": {
+        "properties": {
+          "status_code": {
+            "type": "number",
+            "format": "double"
+          },
+          "message": {
+            "type": "string"
+          },
+          "error_detail": {},
+          "failedReason": {
+            "$ref": "#/components/schemas/FailedReason"
+          },
+          "error_code": {
+            "type": "string"
+          },
+          "retry_after_seconds": {
+            "type": "number",
+            "format": "double"
+          }
+        },
+        "required": [
+          "status_code",
+          "message"
+        ],
+        "type": "object",
+        "additionalProperties": false
+      }
+    },
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  },
+  "paths": {
+    "/risk": {
+      "post": {
+        "operationId": "CheckRisk",
+        "responses": {
+          "201": {
+            "description": "Risk assessment completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetRiskResponse"
+                },
+                "examples": {
+                  "Sandbox: dwebb@email.com, CLEAR": {
+                    "value": {
+                      "id": "111",
+                      "team_id": "team_xyz",
+                      "enrichments": [
+                        "CREDIT_BUREAU",
+                        "ONLINE_FOOTPRINT",
+                        "AML"
+                      ],
+                      "first_name": "David",
+                      "last_name": "Webb",
+                      "address": {
+                        "residence_number": "221B",
+                        "street": "Baker Street",
+                        "city": "London",
+                        "postcode": "NW1 6XE",
+                        "country": "United Kingdom",
+                        "country_code": "GB"
+                      },
+                      "date_of_birth": "1996-12-12",
+                      "email": "dwebb@email.com",
+                      "risk_score": 68,
+                      "recommendation": "CLEAR",
+                      "trust_signals": [
+                        "MULTIPLE_CRA_IDENTITY_MATCHES",
+                        "MULTIPLE_CRA_RESIDENCY_MATCHES",
+                        "HIGH_EMAIL_SCORE",
+                        "HIGH_PHONE_SCORE"
+                      ],
+                      "fraud_signals": [],
+                      "enrichment_reports": {
+                        "credit_bureau": {
+                          "state": "PASS",
+                          "checks": {
+                            "IDENTITY_MATCH": {
+                              "state": "PASS"
+                            },
+                            "RESIDENCY_MATCH": {
+                              "state": "PASS"
+                            }
+                          }
+                        },
+                        "online_footprint": {
+                          "state": "PASS",
+                          "checks": {
+                            "EMAIL_SCORE": {
+                              "state": "PASS"
+                            }
+                          }
+                        },
+                        "aml": {
+                          "state": "PASS",
+                          "checks": {
+                            "AML_SANCTIONS_CHECK": {
+                              "state": "PASS"
+                            }
+                          }
+                        }
+                      },
+                      "metadata": {
+                        "thresholds": {
+                          "aml": 96,
+                          "online_footprint": 50
+                        }
+                      },
+                      "billable": false,
+                      "alerts_enabled_at": "2026-07-27T12:00:00Z",
+                      "created_at": "2026-07-27T12:00:00Z"
+                    }
+                  },
+                  "Sandbox: jdoe@email.com, REVIEW": {
+                    "value": {
+                      "id": "222",
+                      "team_id": "team_xyz",
+                      "enrichments": [
+                        "CREDIT_BUREAU",
+                        "ONLINE_FOOTPRINT",
+                        "AML"
+                      ],
+                      "first_name": "Jane",
+                      "last_name": "Doe",
+                      "address": {
+                        "residence_number": "10",
+                        "street": "Downing Street",
+                        "city": "London",
+                        "postcode": "SW1A 2AA",
+                        "country": "United Kingdom",
+                        "country_code": "GB"
+                      },
+                      "date_of_birth": "1988-07-19",
+                      "email": "jdoe@email.com",
+                      "risk_score": 46,
+                      "recommendation": "REVIEW",
+                      "trust_signals": [
+                        "MULTIPLE_CRA_IDENTITY_MATCHES",
+                        "MULTIPLE_CRA_RESIDENCY_MATCHES"
+                      ],
+                      "fraud_signals": [
+                        "LOW_CROSS_TEAM_EMAIL_VELOCITY",
+                        "LOW_EMAIL_SCORE"
+                      ],
+                      "enrichment_reports": {
+                        "credit_bureau": {
+                          "state": "PASS",
+                          "checks": {
+                            "IDENTITY_MATCH": {
+                              "state": "PASS"
+                            },
+                            "RESIDENCY_MATCH": {
+                              "state": "PASS"
+                            }
+                          }
+                        },
+                        "online_footprint": {
+                          "state": "FAIL",
+                          "checks": {
+                            "EMAIL_SCORE": {
+                              "state": "FAIL"
+                            }
+                          }
+                        },
+                        "aml": {
+                          "state": "PASS",
+                          "checks": {
+                            "AML_SANCTIONS_CHECK": {
+                              "state": "PASS"
+                            }
+                          }
+                        }
+                      },
+                      "metadata": {
+                        "thresholds": {
+                          "aml": 96,
+                          "online_footprint": 50
+                        }
+                      },
+                      "billable": false,
+                      "alerts_enabled_at": "2026-07-27T12:05:00Z",
+                      "created_at": "2026-07-27T12:05:00Z"
+                    }
+                  },
+                  "Sandbox: eroberts@email.com, REJECT": {
+                    "value": {
+                      "id": "333",
+                      "team_id": "team_xyz",
+                      "enrichments": [
+                        "CREDIT_BUREAU",
+                        "ONLINE_FOOTPRINT",
+                        "AML"
+                      ],
+                      "first_name": "Emily",
+                      "last_name": "Roberts",
+                      "address": {
+                        "residence_number": "123",
+                        "street": "Union Street",
+                        "city": "Aberdeen",
+                        "postcode": "AB11 6BH",
+                        "country": "United Kingdom",
+                        "country_code": "GB"
+                      },
+                      "date_of_birth": "1995-01-01",
+                      "email": "eroberts@email.com",
+                      "risk_score": 0,
+                      "recommendation": "REJECT",
+                      "trust_signals": [
+                        "MULTIPLE_CRA_IDENTITY_MATCHES"
+                      ],
+                      "fraud_signals": [
+                        "EMAIL_LINKED_TO_MULTIPLE_IDENTITIES",
+                        "LOW_EMAIL_SCORE",
+                        "AML_STRONG_MATCH"
+                      ],
+                      "enrichment_reports": {
+                        "credit_bureau": {
+                          "state": "PARTIAL",
+                          "checks": {
+                            "IDENTITY_MATCH": {
+                              "state": "PASS"
+                            },
+                            "RESIDENCY_MATCH": {
+                              "state": "INCONCLUSIVE"
+                            }
+                          }
+                        },
+                        "online_footprint": {
+                          "state": "FAIL",
+                          "checks": {
+                            "EMAIL_SCORE": {
+                              "state": "FAIL"
+                            }
+                          }
+                        },
+                        "aml": {
+                          "state": "FAIL",
+                          "checks": {
+                            "AML_SANCTIONS_CHECK": {
+                              "state": "FAIL"
+                            }
+                          }
+                        }
+                      },
+                      "metadata": {
+                        "thresholds": {
+                          "aml": 96,
+                          "online_footprint": 50
+                        }
+                      },
+                      "billable": false,
+                      "alerts_enabled_at": "2026-07-27T12:10:00Z",
+                      "created_at": "2026-07-27T12:10:00Z"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request — validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorised",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Feature not entitled — Risk feature required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Method not allowed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "description": "This is Vouchsafe's headline Risk API.\n\nIt gives you an instant picture of the identity fraud risk a customer represents, powered by our real-time fraud intelligence network and premium partner data.\n\nPass the information you have about a customer, and Vouchsafe will scan our network for signs that an identity might be stolen, synthetic or otherwise risky, using verification data and shared reports made by other businesses using the platform.\n\nYou can also run premium `enrichments`:\n\n- `CREDIT_BUREAU` will look for authoritative evidence of a claimed identity and address in official and semi-official databases from around the world, which you can use as an FCA-compliant eKYC onboarding process.\n- `ONLINE_FOOTPRINT` will analyse the identity's digital and online history, to determine if it is likely to be legitimate or recently made-up.\n- `AML` will search over [280 global databases](https://vouchsafe.id/coverage/) of high-risk entities connected to financial or economic crime, including sanctions, watchlists and politically exposed people. It also enrols the person in ongoing monitoring, reported as `alerts_enabled_at`.\n- `ADVERSE_MEDIA` searches news coverage for reported wrongdoing linked to fraud or financial crime.\n\nThe more checks you turn on, the more complete the data you send needs to be.\n\nThis endpoint always returns a `risk_score` between 0 and 100, and a `recommendation` based on that risk, along with extensive metadata so you can explore the discovered trust and risk signals.\n\nThis endpoint can form the basis of a transaction monitoring or data-driven KYC/AML system.\n\n### Recommendations\n\nOur Risk API returns one of three recommendations: `CLEAR`, `REVIEW`, and `REJECT`.\n\n### Face scan\n\nOptionally send a `face_scan`: a live selfie or liveness image (JPEG or PNG, up to 10 MB). We'll check it against our fraud intelligence network to see whether the same face has been used under different identities. Without it, face-based checks are skipped.\n\n### Address\n\nWhen the credit bureau enrichment is turned on, a structured `address` is required. This should be taken from the results returned by the [`GET /postcode` endpoint](https://docs.vouchsafe.id/api/v1/search-postcode). See the `address` field below for how to split a flat, building name and street number.\n\n### Sandbox\n\nIn sandbox mode, `email` picks the recommendation you get back.\n\n| `email` | Recommendation |\n|---|---|\n| contains `+reject` | `REJECT` |\n| contains `+review` | `REVIEW` |\n| anything else | `CLEAR` |\n\nThe response echoes your input and includes only the enrichments you requested.\n\nRequested enrichments are shaped to match the outcome:\n\n- CLEAR: all pass\n- REVIEW: only the last requested enrichment fails\n- REJECT: all fail\n\nTo return a record you can open in the sandbox dashboard, use `dwebb@email.com` (`CLEAR`), `jdoe@email.com` (`REVIEW`), or `eroberts@email.com` (`REJECT`).",
+        "tags": [
+          "Risk"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "first_name": {
+                    "type": "string",
+                    "description": "Given name(s). Required."
+                  },
+                  "last_name": {
+                    "type": "string",
+                    "description": "Family name. Required."
+                  },
+                  "email": {
+                    "type": "string",
+                    "description": "Email address. Required."
+                  },
+                  "date_of_birth": {
+                    "type": "string",
+                    "description": "Date of birth in YYYY-MM-DD format. Required."
+                  },
+                  "enrichments": {
+                    "type": "string",
+                    "description": "JSON-encoded array of optional enrichment checks to run.\nAccepted values: `\"CREDIT_BUREAU\"`, `\"ONLINE_FOOTPRINT\"`, `\"AML\"`, `\"ADVERSE_MEDIA\"`."
+                  },
+                  "address": {
+                    "type": "string",
+                    "description": "Required when `enrichments` includes `\"CREDIT_BUREAU\"`.\n\nMust include `residence_number` (or `building_name`), `postcode`, `city` and `country_code`. `street` is optional, but omitting it may affect match rates.\n\nThe easiest way to get a valid address is to pass a result from `GET /postcode`.\n\nExample: a house, `10 Downing Street, London, SW1A 2AA`:\n```json\n{\n  \"residence_number\": \"10\",\n  \"building_name\": null,\n  \"street\": \"Downing Street\",\n  \"city\": \"London\",\n  \"postcode\": \"SW1A 2AA\",\n  \"region\": null,\n  \"country_code\": \"GB\"\n}\n```\n\nExample: a flat in a named building, `Flat 2, Rose Court, 10 Downing Street, London, SW1A 2AA`:\n```json\n{\n  \"residence_number\": \"Flat 2, 10\",\n  \"building_name\": \"Rose Court\",\n  \"street\": \"Downing Street\",\n  \"city\": \"London\",\n  \"postcode\": \"SW1A 2AA\",\n  \"region\": null,\n  \"country_code\": \"GB\"\n}\n```"
+                  },
+                  "phone": {
+                    "type": "string",
+                    "description": "The person's phone number, in E.164 format (e.g. `+447700900123`). Numbers without a country code are treated as UK numbers.\n\nImproves match rates for `ONLINE_FOOTPRINT` and, for UK numbers, `CREDIT_BUREAU`.\n\nIf we can't read the number, the request still succeeds, but `PHONE_SCORE` returns `NOT_PERFORMED` with reason `INVALID_PHONE_FORMAT`."
+                  },
+                  "thresholds": {
+                    "type": "string",
+                    "description": "JSON-encoded object setting the pass/fail thresholds for enrichment checks. Both keys are optional.\n\n| Key | Accepts | Default |\n|---|---|---|\n| `online_footprint` | Number from 0 to 100. Pass/fail threshold for `ONLINE_FOOTPRINT`. | 50 |\n| `aml` | Number from 0 to 100. Pass/fail threshold for `AML`. | 96 |\n\n```json\n{ \"online_footprint\": 50, \"aml\": 96 }\n```"
+                  },
+                  "face_scan": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "Face scan image (JPEG or PNG, max 10 MB). Optional binary file field."
+                  }
+                },
+                "required": [
+                  "first_name",
+                  "last_name",
+                  "email",
+                  "date_of_birth"
+                ]
+              }
+            }
+          }
+        },
+        "x-api-version": "v2",
+        "x-sandbox": true
+      }
+    }
+  },
+  "info": {
+    "title": "Vouchsafe API docs (V2)",
+    "version": "2.0.0",
+    "description": "Vouchsafe V2 API — experimental endpoints.",
+    "contact": {
+      "name": "Vouchsafe",
+      "url": "https://help.vouchsafe.id",
+      "email": "help@vouchsafe.id"
+    },
+    "license": {
+      "name": "Terms of use",
+      "url": "https://vouchsafe.id/terms"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://app.vouchsafe.id/api/v2",
+      "description": "v2 (Experimental)"
+    }
+  ]
+}
