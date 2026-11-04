@@ -7,6 +7,7 @@ open System.IO
 open System.Net.Http
 open System.Net.Http.Headers
 open System.Text.Json
+open System.Text.RegularExpressions
 open System.Threading
 open System.Threading.Tasks
 open Vouchsafe.Call
@@ -179,6 +180,11 @@ module SmartLookups =
     /// Addresses at a postcode, in the shape the risk check's address takes.
     let searchPostcodeAsync (client: VouchsafeClient) (postcode: string) (ct: CancellationToken) =
         attempt ct (client.V1.SearchPostcode(postcode, ct))
+
+    /// True for a postcode search's residence_number listing a block as a range of flats ("Flat 1-86, 219"), which is
+    /// nobody's address.
+    let isFlatRange (residenceNumber: string) =
+        Regex.IsMatch(residenceNumber, @"^flat\s+\d+\s*-\s*\d+", RegexOptions.IgnoreCase)
 
 module Flows =
 

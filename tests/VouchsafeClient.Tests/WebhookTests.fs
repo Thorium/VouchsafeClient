@@ -41,6 +41,9 @@ let ``the URL token is compared exactly`` () =
     Assert.True(Webhook.tokenMatches "Zr8pL2xQ9vT4" "Zr8pL2xQ9vT4")
     Assert.False(Webhook.tokenMatches "Zr8pL2xQ9vT4" "Zr8pL2xQ9vT5")
     Assert.False(Webhook.tokenMatches "Zr8pL2xQ9vT4" "Zr8pL2xQ9vT")
+    Assert.False(Webhook.tokenMatches "Zr8pL2xQ9vT4" "Zr8pL2xQ9vT4 and more")
+    Assert.False(Webhook.tokenMatches "Zr8pL2xQ9vT4" "")
+    Assert.True(Webhook.tokenMatches "tökén" "tökén")
     Assert.False(Webhook.tokenMatches "Zr8pL2xQ9vT4" null)
     Assert.False(Webhook.tokenMatches "" "")
 

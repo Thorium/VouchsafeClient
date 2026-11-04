@@ -95,3 +95,25 @@ let ``endpoints without a trailing slash still reach the API paths`` () : Task =
         expectOk result |> ignore
         Assert.Equal<string list>([ "https://app.vouchsafe.id/api/v1/authenticate"; "https://app.vouchsafe.id/api/v1/team" ], handler.Calls |> List.map _.Uri)
     }
+
+[<Theory>]
+[<InlineData(400, "There are no known records for that postcode", true)>]
+[<InlineData(400, "There are no sandbox records for that postcode. The sandbox holds addresses for SW1A 2AA, NW1 6XE, AB11 6BH", false)>]
+[<InlineData(403, "There are no known records for that postcode", false)>]
+[<InlineData(403, "Feature not available on your plan", false)>]
+let ``only a 400 saying no known records means an unknown postcode`` (status: int, body: string, unknown: bool) =
+    Assert.Equal(unknown, VouchsafeFailure.isUnknownPostcode (ApiError(status, body)))
+
+[<Fact>]
+let ``a failure that is not Vouchsafe's answer is no unknown postcode`` () =
+    Assert.False(VouchsafeFailure.isUnknownPostcode (InvalidRequest "no known records"))
+    Assert.False(VouchsafeFailure.isUnknownPostcode (AuthenticationRefused(400, "no known records")))
+
+[<Theory>]
+[<InlineData("Flat 1-86, 219", true)>]
+[<InlineData("flat 1 - 3 231", true)>]
+[<InlineData("Flat 3, 219", false)>]
+[<InlineData("231-233", false)>]
+[<InlineData("221B", false)>]
+let ``only a range of flats is a block`` (residence: string, block: bool) =
+    Assert.Equal(block, Api.SmartLookups.isFlatRange residence)

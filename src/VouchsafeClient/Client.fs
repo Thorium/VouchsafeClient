@@ -56,6 +56,14 @@ module VouchsafeFailure =
         | AuthenticationRefused(status, body) -> $"Vouchsafe refused the credentials (HTTP {status}): {body}"
         | TransportError e -> $"Request failed: {e.Message}"
 
+    /// True when Api.SmartLookups.searchPostcodeAsync failed because the postcode has no records, which only a 400 saying
+    /// "no known records" means. A sandbox secret's 400 for a postcode outside its three says "no sandbox records" and is
+    /// not this: a real postcode would be told it doesn't exist.
+    let isUnknownPostcode failure =
+        match failure with
+        | ApiError(400, body) -> body.Contains "no known records"
+        | _ -> false
+
 /// Raised inside a call when authentication is refused; calls return it as AuthenticationRefused.
 exception AuthenticationRefusedException of httpStatus: int * body: string
 

@@ -5,13 +5,17 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <RootNamespace>Vouchsafe</RootNamespace>
     <PackageId>VouchsafeClient</PackageId>
-    <Version>1.0.0</Version>
+    <Version>1.1.0</Version>
     <Authors>Tuomas Hietanen</Authors>
     <PackageLicenseExpression>Unlicense</PackageLicenseExpression>
     <Description>Vouchsafe identity verification API client: verifications, document checks, smart lookups, alerts, adverse media and risk checks.</Description>
     <PackageTags>vouchsafe;kyc;identity;verification;aml;uk;fsharp</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <PackageReleaseNotes>v1.0.0:
+    <PackageReleaseNotes>v1.1.0:
+- ADDED: VouchsafeFailure.isUnknownPostcode: only a 400 saying "no known records", not a sandbox secret's refusal of a postcode outside its three
+- ADDED: Api.SmartLookups.isFlatRange for blocks listed as a range of flats
+- FIXED: Webhook.tokenMatches compares hashes, so the token's length is not timed
+v1.0.0:
 - ADDED: generated clients for the Vouchsafe API v1 and v2 (risk), with Task/Result calls in Api for every operation
 - ADDED: token cache shared by both versions; renews five minutes before expiry, one fetch for concurrent callers, one retry on 401
 - ADDED: multipart supporting document, photo ID and risk check calls with named, typed files; PhotoId and RiskCheck inputs checked before sending

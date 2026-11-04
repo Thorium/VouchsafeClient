@@ -92,10 +92,13 @@ let parse (body: string) : Result<WebhookEvent, string> =
                 | ValueNone -> Error $"the {name} event has no id"
     with :? JsonException as e -> Error $"the body is not JSON: {e.Message}"
 
-/// True when the token received (from the webhook URL) equals the expected one; compared in constant time.
+/// True when the token received (from the webhook URL) equals the expected one; compared in constant time over hashes,
+/// so the length is not timed either.
 let tokenMatches (expected: string) (received: string) =
+    let digest (token: string) = SHA256.HashData(Encoding.UTF8.GetBytes token)
+
     not (String.IsNullOrEmpty expected || isNull received)
-    && CryptographicOperations.FixedTimeEquals(ReadOnlySpan(Encoding.UTF8.GetBytes expected), ReadOnlySpan(Encoding.UTF8.GetBytes received))
+    && CryptographicOperations.FixedTimeEquals(digest expected, digest received)
 
 /// The verification as Vouchsafe holds it now. Act on this rather than on the delivery's own fields.
 let confirmAsync (client: VouchsafeClient) (event: VerificationEvent) (ct: CancellationToken) =

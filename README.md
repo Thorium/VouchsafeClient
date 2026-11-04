@@ -8,7 +8,7 @@ An F# client for the [Vouchsafe](https://vouchsafe.id) identity verification API
 |---|---|
 | `Api.Verifications` | request, list (by status), get, cancel |
 | `Api.Documents` | supporting document, photo ID and eVisa checks without a hosted flow (beta at Vouchsafe) |
-| `Api.SmartLookups` | smart lookup, postcode search |
+| `Api.SmartLookups` | smart lookup, postcode search; `isFlatRange` for a block listed as a range of flats, `VouchsafeFailure.isUnknownPostcode` for a postcode with no records |
 | `Api.Risk` | v2 risk check: risk score, CLEAR / REVIEW / REJECT, credit bureau, online footprint, AML and adverse media enrichments, face scan |
 | `Api.Alerts` | monitored accounts (list, get), turn monitoring on or off, acknowledge an alert |
 | `Api.AdverseMedia` | adverse media check |
@@ -82,7 +82,7 @@ Vouchsafe deliveries are not signed. `Webhook.parse body` reads one:
 - `Verification` events: `Created`, `UserCompleted`, `Verified`, `Refused`, `ManuallyReviewed`, `Expired`;
 - `Alert` events, with the case or smart lookup they concern.
 
-Put a long unguessable token in the webhook URL and check it with `Webhook.tokenMatches` (constant time). Act on
+Put a long unguessable token in the webhook URL and check it with `Webhook.tokenMatches` (constant time over hashes). Act on
 `Webhook.confirmAsync`, which fetches the verification as Vouchsafe holds it, rather than on the delivery's own fields.
 
 ## Changes to the bundled specs
