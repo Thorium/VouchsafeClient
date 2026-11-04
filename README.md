@@ -1,5 +1,7 @@
 # VouchsafeClient
 
+For [vouchsafe.id](https://vouchsafe.id). An unofficial client, not affiliated with or endorsed by Vouchsafe, a trademark of its owner.
+
 An F# client for the [Vouchsafe](https://vouchsafe.id) identity verification API, generated with
 [SwaggerProvider](https://github.com/fsprojects/SwaggerProvider) from Vouchsafe's published OpenAPI specs
 (`src/VouchsafeClient/Schemas`). It targets `net10.0`.
@@ -42,7 +44,9 @@ Every `Api` call returns `Task<Result<_, VouchsafeFailure>>`:
 
 Cancelling your token throws `OperationCanceledException` as usual. The generated clients are on the client, already
 authorised: `vouchsafe.V1` and `vouchsafe.V2`. `VouchsafeClient.create credentials endpoints handler` shares a
-caller-owned `HttpMessageHandler`; the client never disposes it.
+caller-owned `HttpMessageHandler`; the client never disposes it. Set `AllowAutoRedirect = false` on it, as
+`VouchsafeClient.CreateHandler()` does: following a redirect would send the request body or the sign-in's secret to
+whatever host it points at. The token only goes to the hosts in the client's `Endpoints`.
 
 ## Authentication
 

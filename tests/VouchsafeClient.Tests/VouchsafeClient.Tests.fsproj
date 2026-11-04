@@ -9,6 +9,7 @@
   <ItemGroup>
     <Compile Include="FakeVouchsafe.fs" />
     <Compile Include="TokenTests.fs" />
+    <Compile Include="RedirectTests.fs" />
     <Compile Include="ApiTests.fs" />
     <Compile Include="UploadTests.fs" />
     <Compile Include="WebhookTests.fs" />

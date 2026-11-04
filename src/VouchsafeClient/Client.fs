@@ -25,6 +25,10 @@ type Endpoints = { V1: Uri; V2: Uri }
 
 module Endpoints =
 
+    /// The scheme, host and port of each address: the only places the token goes.
+    let internal origins (endpoints: Endpoints) =
+        set [ endpoints.V1.GetLeftPart UriPartial.Authority; endpoints.V2.GetLeftPart UriPartial.Authority ]
+
     /// The address with a trailing '/', so that relative paths resolve under it rather than replacing its last segment.
     let internal asBase (address: Uri) =
         if address.AbsolutePath.EndsWith "/" then address
@@ -66,6 +70,9 @@ module VouchsafeFailure =
 
 /// Raised inside a call when authentication is refused; calls return it as AuthenticationRefused.
 exception AuthenticationRefusedException of httpStatus: int * body: string
+
+/// Raised inside a call when a request would carry the token off the client's endpoints; calls return it as InvalidRequest.
+exception OtherHostException of host: string
 
 /// A bearer token and the time after which it is not used. Printing one shows the expiry only.
 [<StructuredFormatDisplay("{Display}")>]
@@ -161,14 +168,20 @@ type TokenSource internal (credentials: Credentials, authenticateUri: Uri, invok
         | Some token when obj.ReferenceEquals(token, stale) -> current <- None
         | _ -> ()
 
-/// Adds the bearer token to every request; a 401 drops the token and the request is sent once more with a fresh one.
-type internal BearerHandler(tokens: TokenSource, inner: HttpMessageHandler) =
+/// Adds the bearer token to every request; a 401 drops the token and the request is sent once more with a fresh one. A request for a
+/// host outside origins isn't sent.
+type internal BearerHandler(tokens: TokenSource, origins: Set<string>, inner: HttpMessageHandler) =
     inherit DelegatingHandler(inner)
 
     member private _.SendInner(request, ct) = base.SendAsync(request, ct)
 
     override this.SendAsync(request, ct) =
+        let refuseOtherHost () =
+            if not (origins.Contains(request.RequestUri.GetLeftPart UriPartial.Authority)) then
+                raise (OtherHostException request.RequestUri.Host)
+
         task {
+            refuseOtherHost ()
             let! token = tokens.GetAsync ct
             request.Headers.Authorization <- AuthenticationHeaderValue("Bearer", token.Value)
             let! response = this.SendInner(request, ct)
@@ -177,18 +190,21 @@ type internal BearerHandler(tokens: TokenSource, inner: HttpMessageHandler) =
             else
                 response.Dispose()
                 tokens.Invalidate token
+                // A handler that followed a redirect has moved the request.
+                refuseOtherHost ()
                 let! fresh = tokens.GetAsync ct
                 request.Headers.Authorization <- AuthenticationHeaderValue("Bearer", fresh.Value)
                 return! this.SendInner(request, ct)
         }
 
 /// A Vouchsafe connection: one token cache and the generated client of each API version over one shared handler.
-/// Keep it for the application's lifetime; the handler stays the caller's (it is never disposed here).
+/// Keep it for the application's lifetime; the handler stays the caller's (it is never disposed here). A caller's handler must not follow
+/// redirects: it would send the body, and the sign-in's secret, to wherever a redirect points.
 [<Sealed>]
 type VouchsafeClient internal (credentials: Credentials, configured: Endpoints, handler: HttpMessageHandler, now: unit -> DateTimeOffset) =
     let endpoints = { V1 = Endpoints.asBase configured.V1; V2 = Endpoints.asBase configured.V2 }
     let tokens = TokenSource(credentials, Uri(endpoints.V1, "authenticate"), new HttpMessageInvoker(handler, false), now)
-    let authorized = new BearerHandler(tokens, handler)
+    let authorized = new BearerHandler(tokens, Endpoints.origins endpoints, handler)
 
     /// Unset optional fields are left out of request bodies rather than sent as null.
     let json = JsonSerializerOptions(DefaultIgnoreCondition = Serialization.JsonIgnoreCondition.WhenWritingNull)
@@ -218,9 +234,10 @@ type VouchsafeClient internal (credentials: Credentials, configured: Endpoints, 
         | :? 'T as typed -> ValueSome typed
         | _ -> ValueNone
 
-    /// A handler for app.vouchsafe.id. Create it once per application.
+    /// A handler for app.vouchsafe.id. Create it once per application. It doesn't follow redirects, so a token or personal data can't
+    /// follow one to another host: a 3xx answer is an ApiError.
     static member CreateHandler() : HttpMessageHandler =
-        new SocketsHttpHandler(UseCookies = false, PooledConnectionLifetime = TimeSpan.FromMinutes 5.)
+        new SocketsHttpHandler(UseCookies = false, PooledConnectionLifetime = TimeSpan.FromMinutes 5., AllowAutoRedirect = false)
 
     /// A client with its own handler.
     static member Create(credentials, endpoints) = VouchsafeClient(credentials, endpoints, VouchsafeClient.CreateHandler())
@@ -239,6 +256,7 @@ module internal Call =
         | :? AggregateException as e when e.InnerExceptions.Count = 1 -> failureOf e.InnerException
         | :? Swagger.OpenApiException as e -> ApiError(e.StatusCode, e.ResponseBody)
         | AuthenticationRefusedException(status, body) -> AuthenticationRefused(status, body)
+        | OtherHostException host -> InvalidRequest $"{host} isn't one of the client's endpoints, so the token isn't sent there"
         | e -> TransportError e
 
     /// Runs a call; exceptions become Error. Cancellation of the token propagates.
