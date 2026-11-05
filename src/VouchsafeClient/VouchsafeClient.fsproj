@@ -5,14 +5,16 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <RootNamespace>Vouchsafe</RootNamespace>
     <PackageId>VouchsafeClient</PackageId>
-    <Version>1.1.1</Version>
+    <Version>1.1.2</Version>
     <Authors>Tuomas Hietanen</Authors>
     <PackageLicenseExpression>Unlicense</PackageLicenseExpression>
     <Description>For vouchsafe.id. Unofficial .NET client for the Vouchsafe identity verification API: verifications, document checks, smart lookups, alerts, adverse media and risk checks.</Description>
     <PackageTags>vouchsafe.id;vouchsafe;kyc;identity;verification;aml;uk;fsharp</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageIcon>icon.png</PackageIcon>
-    <PackageReleaseNotes>v1.1.1:
+    <PackageReleaseNotes>v1.1.2:
+- ADDED: Api.Alerts.listEveryAccountAsync reads every page of monitored accounts
+v1.1.1:
 - FIXED: CreateHandler no longer follows redirects, which sent bodies and the sign-in's secret to the redirect's host; a 3xx answer is an ApiError
 - FIXED: the bearer token only goes to the client's Endpoints; others are InvalidRequest, including a 401 retry after a caller's handler followed a redirect
 v1.1.0:

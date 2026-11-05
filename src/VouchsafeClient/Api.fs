@@ -217,6 +217,33 @@ module Alerts =
         =
         attempt ct (client.V1.ListAccounts(ValueOption.toOption status, ValueOption.toOption cursor, ct))
 
+    let rec private accountPagesFrom
+        (client: VouchsafeClient)
+        (status: VouchsafeV1.AlertAccountStatus voption)
+        (cursor: string voption)
+        (pages: VouchsafeV1.AlertAccountResponse array list)
+        (ct: CancellationToken)
+        =
+        task {
+            match! listAccountsAsync client status cursor ct with
+            | Error failure -> return Error failure
+            | Ok answer ->
+                let pages = answer.Accounts :: pages
+
+                match answer.NextCursor with
+                | Some next when not (String.IsNullOrEmpty next) ->
+                    return! accountPagesFrom client status (ValueSome next) pages ct
+                | _ -> return Ok(pages |> List.rev |> Array.concat)
+        }
+
+    /// Every monitored account, optionally only those with the status, reading page by page.
+    let listEveryAccountAsync
+        (client: VouchsafeClient)
+        (status: VouchsafeV1.AlertAccountStatus voption)
+        (ct: CancellationToken)
+        =
+        accountPagesFrom client status ValueNone [] ct
+
     let getAccountAsync (client: VouchsafeClient) (accountId: string) (ct: CancellationToken) =
         withSegment "accountId" accountId (fun escaped -> attempt ct (client.V1.GetAccountDetail(escaped, ct)))
 

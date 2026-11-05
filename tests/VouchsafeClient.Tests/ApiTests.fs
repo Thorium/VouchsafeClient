@@ -117,3 +117,37 @@ let ``a failure that is not Vouchsafe's answer is no unknown postcode`` () =
 [<InlineData("221B", false)>]
 let ``only a range of flats is a block`` (residence: string, block: bool) =
     Assert.Equal(block, Api.SmartLookups.isFlatRange residence)
+
+[<Fact>]
+let ``reading every monitored account follows the cursor to the end`` () : Task =
+    task {
+        use handler =
+            new FakeVouchsafeHandler(
+                respondWith (fun call ->
+                    if call.Uri.Contains "cursor=second" then
+                        200, """{"accounts":[{}],"next_cursor":null}"""
+                    else
+                        200, """{"accounts":[{},{}],"next_cursor":"second"}""")
+            )
+
+        match! Api.Alerts.listEveryAccountAsync (clientWith handler) ValueNone ct with
+        | Ok accounts -> Assert.Equal(3, accounts.Length)
+        | Error failure -> failwith $"%A{failure}"
+    }
+
+[<Fact>]
+let ``a failed page fails the whole read`` () : Task =
+    task {
+        use handler =
+            new FakeVouchsafeHandler(
+                respondWith (fun call ->
+                    if call.Uri.Contains "cursor=second" then
+                        503, "{}"
+                    else
+                        200, """{"accounts":[{}],"next_cursor":"second"}""")
+            )
+
+        match! Api.Alerts.listEveryAccountAsync (clientWith handler) ValueNone ct with
+        | Ok _ -> failwith "a failed page was taken for the end"
+        | Error _ -> ()
+    }
