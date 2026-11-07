@@ -40,7 +40,13 @@ Every `Api` call returns `Task<Result<_, VouchsafeFailure>>`:
 - `InvalidRequest reason`: not sent. For example an id was empty, `.` or `..`, or a risk check can't be valid.
 - `ApiError(status, body)`: Vouchsafe answered with a non-success status.
 - `AuthenticationRefused(status, body)`: the credentials were refused.
-- `TransportError exn`: there was no answer, or it could not be read.
+- `TransportError exn`: there was no complete answer, so whether Vouchsafe did the work is unknown.
+- `InvalidResponse answer`: Vouchsafe answered with success and the client could not read it. `answer` has `HttpStatus`,
+  `Body` and `Reason`. Vouchsafe did the work, so sending a verification request again starts another. `Body` can hold
+  identity data: `describe` and printing the failure leave it out.
+
+`VouchsafeClient.Create(credentials, endpoints, timeout)` limits each `Api` call, with any sign-in and 401 resend inside
+it; past the limit the call is a `TransportError`. Without it the limit is `HttpClient`'s default of 100 seconds.
 
 Cancelling your token throws `OperationCanceledException` as usual. The generated clients are on the client, already
 authorised: `vouchsafe.V1` and `vouchsafe.V2`. `VouchsafeClient.create credentials endpoints handler` shares a

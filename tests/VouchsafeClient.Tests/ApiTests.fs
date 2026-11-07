@@ -151,3 +151,220 @@ let ``a failed page fails the whole read`` () : Task =
         | Ok _ -> failwith "a failed page was taken for the end"
         | Error _ -> ()
     }
+
+type private HangingHandler() =
+    inherit Net.Http.HttpMessageHandler()
+    override _.SendAsync(request, ct) =
+        task {
+            if request.RequestUri.AbsoluteUri.EndsWith "/authenticate" then
+                return new Net.Http.HttpResponseMessage(Net.HttpStatusCode.Created, Content = new Net.Http.StringContent(tokenJson "t" (DateTimeOffset.UtcNow.AddDays 1.), Text.Encoding.UTF8, "application/json"))
+            else
+                do! Task.Delay(Threading.Timeout.Infinite, ct)
+                return null
+        }
+
+/// A success answer whose body stops with an error part way through.
+type private BrokenBodyHandler() =
+    inherit Net.Http.HttpMessageHandler()
+    override _.SendAsync(request, _) =
+        task {
+            if request.RequestUri.AbsoluteUri.EndsWith "/authenticate" then
+                return new Net.Http.HttpResponseMessage(Net.HttpStatusCode.Created, Content = new Net.Http.StringContent(tokenJson "t" (DateTimeOffset.UtcNow.AddDays 1.), Text.Encoding.UTF8, "application/json"))
+            else
+                let stream =
+                    { new IO.MemoryStream() with
+                        override _.ReadAsync(_: Memory<byte>, _: Threading.CancellationToken) =
+                            ValueTask<int>(Task.FromException<int>(IO.IOException "connection lost")) }
+                return new Net.Http.HttpResponseMessage(Net.HttpStatusCode.OK, Content = new Net.Http.StreamContent(stream))
+        }
+
+let private wrongTypeAnswer = """{"url":"https://app.vouchsafe.id/v/abc","id":12345,"flow_id":"flow-1","expires_at":"2026-11-04T12:00:00.000Z"}"""
+
+let private verification () = VouchsafeV1.RequestVerificationInput(Email = "person@example.com")
+
+let private expectUnreadable result =
+    match result with
+    | Error(InvalidResponse answer) -> answer
+    | other -> failwith $"%A{other}"
+
+[<Fact>]
+let ``an answer of the wrong type is InvalidResponse with the status and body`` () : Task =
+    task {
+        use handler = new FakeVouchsafeHandler(respondWith (fun _ -> 201, wrongTypeAnswer))
+        let! result = Api.Verifications.requestAsync (clientWith handler) (verification ()) ct
+        let answer = expectUnreadable result
+        Assert.Equal(201, answer.HttpStatus)
+        Assert.Equal(wrongTypeAnswer, answer.Body)
+        Assert.Contains("$.id", answer.Reason)
+        Assert.Single handler.ApiCalls |> ignore
+    }
+
+[<Fact>]
+let ``an unreadable answer to a hand-written upload is InvalidResponse too`` () : Task =
+    task {
+        use handler = new FakeVouchsafeHandler(respondWith (fun _ -> 200, "<html>proxy</html>"))
+        let upload = (Api.Upload.ofBytes "a.pdf" [| 1uy |]).Value
+        let! result = Api.Documents.verifySupportingDocumentAsync (clientWith handler) Api.SupportingDocumentType.BankStatement upload ValueNone ct
+        Assert.Equal("<html>proxy</html>", (expectUnreadable result).Body)
+    }
+
+[<Fact>]
+let ``printing an unreadable answer or describing it leaves the body out`` () : Task =
+    task {
+        use handler = new FakeVouchsafeHandler(respondWith (fun _ -> 201, wrongTypeAnswer))
+        let! result = Api.Verifications.requestAsync (clientWith handler) (verification ()) ct
+        let failure = match result with Error failure -> failure | Ok _ -> failwith "read"
+        for text in [ VouchsafeFailure.describe failure; $"%A{failure}"; string (expectUnreadable result) ] do
+            Assert.DoesNotContain("12345", text)
+            Assert.DoesNotContain("app.vouchsafe.id", text)
+            Assert.Contains("201", text)
+            Assert.Contains("$.id", text)
+    }
+
+[<Fact>]
+let ``an unreadable answer isn't an unknown postcode`` () =
+    let answer = { HttpStatus = 200; Body = "no known records"; Reason = "r" }
+    Assert.False(VouchsafeFailure.isUnknownPostcode (InvalidResponse answer))
+
+[<Fact>]
+let ``a success answer cut off part way is TransportError`` () : Task =
+    task {
+        let client = VouchsafeClient.create credentials Endpoints.standard (new BrokenBodyHandler())
+        match! Api.Verifications.requestAsync client (verification ()) ct with
+        | Error(TransportError _) -> ()
+        | other -> failwith $"%A{other}"
+    }
+
+[<Fact>]
+let ``Create without a timeout keeps the default and Create with one sets it on both versions`` () =
+    let plain = VouchsafeClient.Create(credentials, Endpoints.standard)
+    Assert.Equal(TimeSpan.FromSeconds 100., plain.V1.HttpClient.Timeout)
+    let limited = VouchsafeClient.Create(credentials, Endpoints.standard, TimeSpan.FromSeconds 20.)
+    Assert.Equal(TimeSpan.FromSeconds 20., limited.V1.HttpClient.Timeout)
+    Assert.Equal(TimeSpan.FromSeconds 20., limited.V2.HttpClient.Timeout)
+
+[<Theory>]
+[<InlineData(0.)>]
+[<InlineData(-5.)>]
+let ``Create refuses a timeout that isn't positive`` (seconds: float) =
+    Assert.Throws<ArgumentOutOfRangeException>(fun () ->
+        VouchsafeClient.Create(credentials, Endpoints.standard, TimeSpan.FromSeconds seconds) |> ignore)
+    |> ignore
+
+[<Fact>]
+let ``a stuck call past the timeout is TransportError, not an exception`` () : Task =
+    task {
+        let client = VouchsafeClient(credentials, Endpoints.standard, new HangingHandler(), (fun () -> DateTimeOffset.UtcNow), ValueSome(TimeSpan.FromMilliseconds 200.))
+        let call = Api.Verifications.requestAsync client (verification ()) ct
+        let! winner = Task.WhenAny(call :> Task, Task.Delay 10000)
+        Assert.Same(call, winner)
+        match! call with
+        | Error(TransportError(:? OperationCanceledException)) -> ()
+        | other -> failwith $"%A{other}"
+    }
+
+[<Fact>]
+let ``the caller's cancellation still throws with a timeout set`` () : Task =
+    task {
+        use cancel = new Threading.CancellationTokenSource(TimeSpan.FromMilliseconds 100.)
+        let client = VouchsafeClient(credentials, Endpoints.standard, new HangingHandler(), (fun () -> DateTimeOffset.UtcNow), ValueSome(TimeSpan.FromSeconds 30.))
+        let! _ = Assert.ThrowsAnyAsync<OperationCanceledException>(fun () -> Api.Verifications.requestAsync client (verification ()) cancel.Token :> Task)
+        ()
+    }
+
+[<Theory>]
+[<InlineData("""{"url":nul Jane Doe of 1 High Street London}""")>]
+[<InlineData("""Jane Doe of 1 High Street London""")>]
+[<InlineData("""{"Jane Doe of 1 High Street London":nul}""")>]
+let ``a malformed answer's text stays out of describe and printing`` (body: string) : Task =
+    task {
+        use handler = new FakeVouchsafeHandler(respondWith (fun _ -> 201, body))
+        let! result = Api.Verifications.requestAsync (clientWith handler) (verification ()) ct
+        let answer = expectUnreadable result
+        Assert.Equal(body, answer.Body)
+        let failure = InvalidResponse answer
+        for text in [ VouchsafeFailure.describe failure; $"%A{failure}"; string failure; string answer; answer.Reason ] do
+            Assert.DoesNotContain("Jane", text)
+            Assert.DoesNotContain("High Street", text)
+            Assert.DoesNotContain("London", text)
+    }
+
+[<Fact>]
+let ``Reason is the JSON position of the failure`` () : Task =
+    task {
+        use handler = new FakeVouchsafeHandler(respondWith (fun _ -> 201, wrongTypeAnswer))
+        let! result = Api.Verifications.requestAsync (clientWith handler) (verification ()) ct
+        Assert.Equal("Invalid at $.id, line 0, byte 50", (expectUnreadable result).Reason)
+    }
+
+[<Fact>]
+let ``a body of null is InvalidResponse, not Ok null`` () : Task =
+    task {
+        use handler = new FakeVouchsafeHandler(respondWith (fun _ -> 201, "null"))
+        let! result = Api.Verifications.requestAsync (clientWith handler) (verification ()) ct
+        let answer = expectUnreadable result
+        Assert.Equal("null", answer.Body)
+        Assert.Equal(201, answer.HttpStatus)
+    }
+
+[<Fact>]
+let ``a body of null to a hand-written upload is InvalidResponse too`` () : Task =
+    task {
+        use handler = new FakeVouchsafeHandler(respondWith (fun _ -> 200, "null"))
+        let upload = (Api.Upload.ofBytes "a.pdf" [| 1uy |]).Value
+        let! result = Api.Documents.verifySupportingDocumentAsync (clientWith handler) Api.SupportingDocumentType.BankStatement upload ValueNone ct
+        Assert.Equal("null", (expectUnreadable result).Body)
+    }
+
+[<Fact>]
+let ``Create refuses a timeout HttpClient can't hold, and takes the longest it can`` () =
+    let tooLong = TimeSpan.FromDays 30.
+    Assert.Throws<ArgumentOutOfRangeException>(fun () -> VouchsafeClient.Create(credentials, Endpoints.standard, tooLong) |> ignore) |> ignore
+    let longest = TimeSpan.FromMilliseconds(float Int32.MaxValue)
+    Assert.Equal(longest, VouchsafeClient.Create(credentials, Endpoints.standard, longest).V1.HttpClient.Timeout)
+    let endless = Threading.Timeout.InfiniteTimeSpan
+    Assert.Equal(endless, VouchsafeClient.Create(credentials, Endpoints.standard, endless).V1.HttpClient.Timeout)
+
+let private kept () =
+    new Net.Http.HttpResponseMessage(Net.HttpStatusCode.OK, Content = new Net.Http.StringContent("{}"))
+
+[<Fact>]
+let ``transport exceptions stay TransportError even after an answer was kept`` () : Task =
+    task {
+        let errors: exn list =
+            [ Net.Http.HttpRequestException "lost"; IO.IOException "lost"; OperationCanceledException "lost" ]
+        for error in errors do
+            let! result =
+                Call.guarded ct (fun () ->
+                    task {
+                        do! LastAnswer.keep (kept ()) ct
+                        return raise error
+                    })
+            match result with
+            | Error(TransportError e) -> Assert.Same(error, e)
+            | other -> failwith $"%A{(other: Result<unit, VouchsafeFailure>)}"
+    }
+
+[<Fact>]
+let ``any other exception after an answer gives only its type name as Reason`` () : Task =
+    task {
+        let! result =
+            Call.guarded ct (fun () ->
+                task {
+                    do! LastAnswer.keep (kept ()) ct
+                    return raise (InvalidOperationException "Jane Doe")
+                })
+        let answer = expectUnreadable (result: Result<unit, VouchsafeFailure>)
+        Assert.Equal("InvalidOperationException", answer.Reason)
+    }
+
+[<Fact>]
+let ``concurrent calls report their own unreadable answers`` () : Task =
+    task {
+        use handler = new FakeVouchsafeHandler(respondWith (fun call -> 200, $"<{call.Uri}>"))
+        let client = clientWith handler
+        let! results = [ "c1"; "c2"; "c3"; "c4" ] |> List.map (fun id -> Api.Verifications.getAsync client id ct) |> Task.WhenAll
+        Assert.Equal<string list>(
+            [ "c1>"; "c2>"; "c3>"; "c4>" ],
+            results |> List.ofArray |> List.map (fun result -> let body = (expectUnreadable result).Body in body.Substring(body.Length - 3)))
+    }

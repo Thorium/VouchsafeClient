@@ -67,17 +67,17 @@ let private postFormAsync<'T>
 module Verifications =
 
     let requestAsync (client: VouchsafeClient) (input: VouchsafeV1.RequestVerificationInput) (ct: CancellationToken) =
-        attempt ct (client.V1.RequestVerification(input, ct))
+        attempt ct (fun () -> client.V1.RequestVerification(input, ct))
 
     /// Verifications, optionally only those with the status.
     let listAsync (client: VouchsafeClient) (status: VouchsafeV1.CaseStatus voption) (ct: CancellationToken) =
-        attempt ct (client.V1.ListVerifications(ValueOption.toOption status, ct))
+        attempt ct (fun () -> client.V1.ListVerifications(ValueOption.toOption status, ct))
 
     let getAsync (client: VouchsafeClient) (verificationId: string) (ct: CancellationToken) =
-        withSegment "verificationId" verificationId (fun escaped -> attempt ct (client.V1.GetVerification(escaped, ct)))
+        withSegment "verificationId" verificationId (fun escaped -> attempt ct (fun () -> client.V1.GetVerification(escaped, ct)))
 
     let cancelAsync (client: VouchsafeClient) (verificationId: string) (ct: CancellationToken) =
-        withSegment "verificationId" verificationId (fun escaped -> attempt ct (client.V1.CancelVerification(escaped, ct)))
+        withSegment "verificationId" verificationId (fun escaped -> attempt ct (fun () -> client.V1.CancelVerification(escaped, ct)))
 
 /// The kinds of supporting document Vouchsafe verifies.
 [<RequireQualifiedAccess>]
@@ -161,25 +161,25 @@ module Documents =
 
     /// Checks an eVisa share code; input is a VouchsafeV1.ImmigrationStatusInput, RightToWorkInput or RightToRentInput.
     let verifyEvisaAsync (client: VouchsafeClient) (input: obj) (ct: CancellationToken) =
-        attempt ct (client.V1.VerifyEvisa(input, ct))
+        attempt ct (fun () -> client.V1.VerifyEvisa(input, ct))
 
 /// Teams under a partner account.
 module Team =
 
     let createAsync (client: VouchsafeClient) (partnerToken: string) (input: VouchsafeV1.CreateTeamInput) (ct: CancellationToken) =
-        attempt ct (client.V1.CreateTeam(partnerToken, input, ct))
+        attempt ct (fun () -> client.V1.CreateTeam(partnerToken, input, ct))
 
-    let getAsync (client: VouchsafeClient) (ct: CancellationToken) = attempt ct (client.V1.GetTeam ct)
+    let getAsync (client: VouchsafeClient) (ct: CancellationToken) = attempt ct (fun () -> client.V1.GetTeam ct)
 
 /// Smart lookups (data checks without a hosted flow) and postcode search.
 module SmartLookups =
 
     let performAsync (client: VouchsafeClient) (input: VouchsafeV1.SmartLookupInput) (ct: CancellationToken) =
-        attempt ct (client.V1.PerformSmartLookup(input, ct))
+        attempt ct (fun () -> client.V1.PerformSmartLookup(input, ct))
 
     /// Addresses at a postcode, in the shape the risk check's address takes.
     let searchPostcodeAsync (client: VouchsafeClient) (postcode: string) (ct: CancellationToken) =
-        attempt ct (client.V1.SearchPostcode(postcode, ct))
+        attempt ct (fun () -> client.V1.SearchPostcode(postcode, ct))
 
     /// True for a postcode search's residence_number listing a block as a range of flats ("Flat 1-86, 219"), which is
     /// nobody's address.
@@ -188,22 +188,22 @@ module SmartLookups =
 
 module Flows =
 
-    let listAsync (client: VouchsafeClient) (ct: CancellationToken) = attempt ct (client.V1.ListFlows ct)
+    let listAsync (client: VouchsafeClient) (ct: CancellationToken) = attempt ct (fun () -> client.V1.ListFlows ct)
 
     let getAsync (client: VouchsafeClient) (flowId: string) (ct: CancellationToken) =
-        withSegment "flowId" flowId (fun escaped -> attempt ct (client.V1.GetFlow(escaped, ct)))
+        withSegment "flowId" flowId (fun escaped -> attempt ct (fun () -> client.V1.GetFlow(escaped, ct)))
 
 module Coverage =
 
     /// Supported digital IDs, photo IDs, supporting documents and data sources, optionally for one country or kind.
     let listAsync (client: VouchsafeClient) (countryCode: string voption) (kind: VouchsafeV1.CoverageType voption) (ct: CancellationToken) =
-        attempt ct (client.V1.ListCoverage(ValueOption.toOption countryCode, ValueOption.toOption kind, ct))
+        attempt ct (fun () -> client.V1.ListCoverage(ValueOption.toOption countryCode, ValueOption.toOption kind, ct))
 
 module Artefacts =
 
     /// A temporary download link for an artefact (document image, report, …).
     let getAsync (client: VouchsafeClient) (artefactKey: string) (ct: CancellationToken) =
-        withSegment "artefactKey" artefactKey (fun escaped -> attempt ct (client.V1.GetArtefact(escaped, ct)))
+        withSegment "artefactKey" artefactKey (fun escaped -> attempt ct (fun () -> client.V1.GetArtefact(escaped, ct)))
 
 /// Ongoing monitoring alerts.
 module Alerts =
@@ -215,7 +215,7 @@ module Alerts =
         (cursor: string voption)
         (ct: CancellationToken)
         =
-        attempt ct (client.V1.ListAccounts(ValueOption.toOption status, ValueOption.toOption cursor, ct))
+        attempt ct (fun () -> client.V1.ListAccounts(ValueOption.toOption status, ValueOption.toOption cursor, ct))
 
     let rec private accountPagesFrom
         (client: VouchsafeClient)
@@ -245,20 +245,20 @@ module Alerts =
         accountPagesFrom client status ValueNone [] ct
 
     let getAccountAsync (client: VouchsafeClient) (accountId: string) (ct: CancellationToken) =
-        withSegment "accountId" accountId (fun escaped -> attempt ct (client.V1.GetAccountDetail(escaped, ct)))
+        withSegment "accountId" accountId (fun escaped -> attempt ct (fun () -> client.V1.GetAccountDetail(escaped, ct)))
 
     /// Turns ongoing monitoring on or off for an account.
     let setAlertsAsync (client: VouchsafeClient) (accountId: string) (enabled: bool) (ct: CancellationToken) =
         withSegment "accountId" accountId (fun escaped ->
-            attempt ct (client.V1.ToggleAlerts(escaped, VouchsafeV1.ToggleAlertsInput(AlertsEnabled = enabled), ct)))
+            attempt ct (fun () -> client.V1.ToggleAlerts(escaped, VouchsafeV1.ToggleAlertsInput(AlertsEnabled = enabled), ct)))
 
     let acknowledgeAsync (client: VouchsafeClient) (alertId: string) (ct: CancellationToken) =
-        withSegment "alertId" alertId (fun escaped -> attempt ct (client.V1.AcknowledgeAlert(escaped, ct)))
+        withSegment "alertId" alertId (fun escaped -> attempt ct (fun () -> client.V1.AcknowledgeAlert(escaped, ct)))
 
 module AdverseMedia =
 
     let checkAsync (client: VouchsafeClient) (input: VouchsafeV1.AdverseMediaInput) (ct: CancellationToken) =
-        attempt ct (client.V1.PerformAdverseMediaCheck(input, ct))
+        attempt ct (fun () -> client.V1.PerformAdverseMediaCheck(input, ct))
 
 /// Optional enrichments of a risk check.
 [<RequireQualifiedAccess>]
