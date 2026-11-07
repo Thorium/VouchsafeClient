@@ -168,14 +168,15 @@ type private BrokenBodyHandler() =
     inherit Net.Http.HttpMessageHandler()
     override _.SendAsync(request, _) =
         task {
-            if request.RequestUri.AbsoluteUri.EndsWith "/authenticate" then
-                return new Net.Http.HttpResponseMessage(Net.HttpStatusCode.Created, Content = new Net.Http.StringContent(tokenJson "t" (DateTimeOffset.UtcNow.AddDays 1.), Text.Encoding.UTF8, "application/json"))
-            else
-                let stream =
-                    { new IO.MemoryStream() with
-                        override _.ReadAsync(_: Memory<byte>, _: Threading.CancellationToken) =
-                            ValueTask<int>(Task.FromException<int>(IO.IOException "connection lost")) }
-                return new Net.Http.HttpResponseMessage(Net.HttpStatusCode.OK, Content = new Net.Http.StreamContent(stream))
+            return
+                if request.RequestUri.AbsoluteUri.EndsWith "/authenticate" then
+                    new Net.Http.HttpResponseMessage(Net.HttpStatusCode.Created, Content = new Net.Http.StringContent(tokenJson "t" (DateTimeOffset.UtcNow.AddDays 1.), Text.Encoding.UTF8, "application/json"))
+                else
+                    let stream =
+                        { new IO.MemoryStream() with
+                            override _.ReadAsync(_: Memory<byte>, _: Threading.CancellationToken) =
+                                ValueTask<int>(Task.FromException<int>(IO.IOException "connection lost")) }
+                    new Net.Http.HttpResponseMessage(Net.HttpStatusCode.OK, Content = new Net.Http.StreamContent(stream))
         }
 
 let private wrongTypeAnswer = """{"url":"https://app.vouchsafe.id/v/abc","id":12345,"flow_id":"flow-1","expires_at":"2026-11-04T12:00:00.000Z"}"""
@@ -243,9 +244,7 @@ let ``Create without a timeout keeps the default and Create with one sets it on 
     Assert.Equal(TimeSpan.FromSeconds 20., limited.V1.HttpClient.Timeout)
     Assert.Equal(TimeSpan.FromSeconds 20., limited.V2.HttpClient.Timeout)
 
-[<Theory>]
-[<InlineData(0.)>]
-[<InlineData(-5.)>]
+[<Theory; InlineData(0.); InlineData(-5.)>]
 let ``Create refuses a timeout that isn't positive`` (seconds: float) =
     Assert.Throws<ArgumentOutOfRangeException>(fun () ->
         VouchsafeClient.Create(credentials, Endpoints.standard, TimeSpan.FromSeconds seconds) |> ignore)
@@ -363,8 +362,8 @@ let ``concurrent calls report their own unreadable answers`` () : Task =
     task {
         use handler = new FakeVouchsafeHandler(respondWith (fun call -> 200, $"<{call.Uri}>"))
         let client = clientWith handler
-        let! results = [ "c1"; "c2"; "c3"; "c4" ] |> List.map (fun id -> Api.Verifications.getAsync client id ct) |> Task.WhenAll
+        let! results = [ "c1"; "c2"; "c3"; "c4" ] |> List.map (fun pid -> Api.Verifications.getAsync client pid ct) |> Task.WhenAll
         Assert.Equal<string list>(
             [ "c1>"; "c2>"; "c3>"; "c4>" ],
-            results |> List.ofArray |> List.map (fun result -> let body = (expectUnreadable result).Body in body.Substring(body.Length - 3)))
+            results |> Array.map (fun result -> let body = (expectUnreadable result).Body in body.Substring(body.Length - 3)) |> List.ofArray)
     }
