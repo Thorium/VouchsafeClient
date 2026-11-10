@@ -9,6 +9,7 @@ open FakeVouchsafe
 let private answer (call: Call) =
     let path = Uri(call.Uri).AbsolutePath
     if path.EndsWith "/verifications" && call.Method = "GET" then 200, "[]"
+    elif path.Contains "/verifications/" && call.Method = "GET" then 200, """{"id":"case-1"}"""
     elif path.EndsWith "/flows" || path.EndsWith "/coverage" then 200, "[]"
     else 200, "{}"
 
@@ -366,4 +367,28 @@ let ``concurrent calls report their own unreadable answers`` () : Task =
         Assert.Equal<string list>(
             [ "c1>"; "c2>"; "c3>"; "c4>" ],
             results |> Array.map (fun result -> let body = (expectUnreadable result).Body in body.Substring(body.Length - 3)) |> List.ofArray)
+    }
+
+[<Theory>]
+[<InlineData("{}", "The answer has no id")>]
+[<InlineData("""{"id":""}""", "The answer has no id")>]
+[<InlineData("""{"id":"case-1"}""", "The answer has no url")>]
+let ``a started verification without its id or url is InvalidResponse`` (body: string, reason: string) : Task =
+    task {
+        use handler = new FakeVouchsafeHandler(respondWith (fun _ -> 201, body))
+        let! result = Api.Verifications.requestAsync (clientWith handler) (verification ()) ct
+        let answer = expectUnreadable result
+        Assert.Equal(201, answer.HttpStatus)
+        Assert.Equal(body, answer.Body)
+        Assert.Equal(reason, answer.Reason)
+    }
+
+[<Theory>]
+[<InlineData("{}")>]
+[<InlineData("""{"status":"Verified"}""")>]
+let ``a verification read without its id is InvalidResponse, not one in progress`` (body: string) : Task =
+    task {
+        use handler = new FakeVouchsafeHandler(respondWith (fun _ -> 200, body))
+        let! result = Api.Verifications.getAsync (clientWith handler) "case-1" ct
+        Assert.Equal("The answer has no id", (expectUnreadable result).Reason)
     }

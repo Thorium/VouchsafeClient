@@ -44,6 +44,8 @@ Every `Api` call returns `Task<Result<_, VouchsafeFailure>>`:
 - `InvalidResponse answer`: Vouchsafe answered with success and the client could not read it. `answer` has `HttpStatus`,
   `Body` and `Reason`. Vouchsafe did the work, so sending a verification request again starts another. `Body` can hold
   identity data: `describe` and printing the failure leave it out.
+  - A verification answer without its id, such as `{}`, is one of these: it would otherwise read as a verification in
+    progress.
 
 `VouchsafeClient.Create(credentials, endpoints, timeout)` limits each `Api` call, with any sign-in and 401 resend inside
 it; past the limit the call is a `TransportError`. Without it the limit is `HttpClient`'s default of 100 seconds.

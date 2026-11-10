@@ -324,11 +324,15 @@ module internal Call =
     /// A success answer of JSON null, to a call that expects a value.
     exception private NullAnswerException
 
+    /// A success answer that read, and holds none of what the call answers with. The reason quotes nothing from it.
+    exception NoDataException of reason: string
+
     /// Where an answer could not be read. Exception messages can quote the answer, so none is used. A bracketed path segment is a
     /// key that isn't a plain name, which could be any text, so the path stops there.
     let private reasonOf (e: exn) =
         match e with
         | NullAnswerException -> "The answer is null"
+        | NoDataException reason -> reason
         | :? JsonException as e ->
             let path =
                 match e.Path with

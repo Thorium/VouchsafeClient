@@ -66,15 +66,33 @@ let private postFormAsync<'T>
 /// Verification requests: the hosted flow a person completes.
 module Verifications =
 
+    /// The answer when `present` holds text. One without it, such as {}, would read as a verification without an id and,
+    /// its status being the first there is, in progress for good, so it is InvalidResponse.
+    let private having (field: string) (present: 'T -> string) (call: Async<'T>) =
+        async {
+            let! answer = call
+
+            if not (isNull (box answer)) && String.IsNullOrWhiteSpace(present answer) then
+                raise (NoDataException $"The answer has no {field}")
+
+            return answer
+        }
+
+    /// Starts a verification. An answer without its id or url is InvalidResponse.
     let requestAsync (client: VouchsafeClient) (input: VouchsafeV1.RequestVerificationInput) (ct: CancellationToken) =
-        attempt ct (fun () -> client.V1.RequestVerification(input, ct))
+        attempt ct (fun () ->
+            client.V1.RequestVerification(input, ct)
+            |> having "id" _.Id
+            |> having "url" _.Url)
 
     /// Verifications, optionally only those with the status.
     let listAsync (client: VouchsafeClient) (status: VouchsafeV1.CaseStatus voption) (ct: CancellationToken) =
         attempt ct (fun () -> client.V1.ListVerifications(ValueOption.toOption status, ct))
 
+    /// A verification. An answer without its id is InvalidResponse.
     let getAsync (client: VouchsafeClient) (verificationId: string) (ct: CancellationToken) =
-        withSegment "verificationId" verificationId (fun escaped -> attempt ct (fun () -> client.V1.GetVerification(escaped, ct)))
+        withSegment "verificationId" verificationId (fun escaped ->
+            attempt ct (fun () -> client.V1.GetVerification(escaped, ct) |> having "id" _.Id))
 
     let cancelAsync (client: VouchsafeClient) (verificationId: string) (ct: CancellationToken) =
         withSegment "verificationId" verificationId (fun escaped -> attempt ct (fun () -> client.V1.CancelVerification(escaped, ct)))

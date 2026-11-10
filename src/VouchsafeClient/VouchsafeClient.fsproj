@@ -5,14 +5,16 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <RootNamespace>Vouchsafe</RootNamespace>
     <PackageId>VouchsafeClient</PackageId>
-    <Version>1.2.0</Version>
+    <Version>1.2.1</Version>
     <Authors>Tuomas Hietanen</Authors>
     <PackageLicenseExpression>Unlicense</PackageLicenseExpression>
     <Description>For vouchsafe.id. Unofficial .NET client for the Vouchsafe identity verification API: verifications, document checks, smart lookups, alerts, adverse media and risk checks.</Description>
     <PackageTags>vouchsafe.id;vouchsafe;kyc;identity;verification;aml;uk;fsharp</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageIcon>icon.png</PackageIcon>
-    <PackageReleaseNotes>v1.2.0:
+    <PackageReleaseNotes>v1.2.1:
+- FIXED: Verifications.getAsync and requestAsync return InvalidResponse for an answer without its id (or url), such as {}; it read as a verification in progress
+v1.2.0:
 - CHANGED: a success answer the client can't read, or a body of null, is InvalidResponse with its status and body, not TransportError or Ok null (BREAKING for exhaustive matches); printing one and describe leave the body out
 - ADDED: VouchsafeClient.Create with a timeout; without one it stays HttpClient's 100 seconds
 v1.1.2:
